@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html" charset="utf-8"/>
+    <title>Babylon - Getting Started</title>
+    <script src="./Babylon.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.5/dat.gui.min.js"></script>
+
+    <!-- link to the last version of babylon -->
+    <style>
+        html, body {
+            overflow: hidden;
+            width   : 100%;
+            height  : 100%;
+            margin  : 0;
+            padding : 0;
+        }
+
+        #renderCanvas {
+            width   : 100%;
+            height  : 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        window.addEventListener('DOMContentLoaded', function(){
+            // get the canvas DOM element
+            var canvas = document.getElementById('renderCanvas');
+
+            // load the 3D engine
+            var engine = new BABYLON.Engine(canvas, true);
+
+            // createScene function that creates and return the scene
+            var createScene = function () {
+                // Create scene
+                var scene = new BABYLON.Scene(engine);
+                scene.clearColor = BABYLON.Color3.Black();
+
+                // Create camera
+                var camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(29, 13, 23), scene);
+                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+                camera.attachControl(canvas);
+
+                // Create some boxes and deactivate lighting (specular color and back faces)
+                var boxMaterial = new BABYLON.StandardMaterial("boxMaterail", scene);
+                boxMaterial.diffuseTexture = new BABYLON.Texture("textures/ground.jpg", scene);
+                boxMaterial.specularColor = BABYLON.Color3.Black();
+                boxMaterial.emissiveColor = BABYLON.Color3.White();
+
+                for (var i = 0; i < 10; i++) {
+                    for (var j = 0; j < 10; j++) {
+                        var box = BABYLON.Mesh.CreateBox("box" + i + " - " + j, 5, scene);
+                        box.position = new BABYLON.Vector3(i * 5, 2.5, j * 5);
+                        box.rotation = new BABYLON.Vector3(i, i * j, j);
+                        box.material = boxMaterial;
+                    }
+                }
+
+                // Create SSAO and configure all properties (for the example)
+                var ssaoRatio = {
+                    ssaoRatio: 0.5, // Ratio of the SSAO post-process, in a lower resolution
+                    blurRatio: 0.5 // Ratio of the combine post-process (combines the SSAO and the scene)
+                };
+
+                var ssao = new BABYLON.SSAO2RenderingPipeline("ssao", scene, ssaoRatio);
+                ssao.radius = 4.5;
+                ssao.totalStrength = 1.80;
+                ssao.base = 0.1;
+                ssao.expensiveBlur = true;
+                ssao.samples = 8;
+
+                // Attach camera to the SSAO render pipeline
+                scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", camera);
+
+                // Manage SSAO
+                window.addEventListener("keydown", function (evt) {
+                    // draw SSAO with scene when pressed "1"
+                    if (evt.keyCode === 49) {
+                        scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", camera);
+                        scene.postProcessRenderPipelineManager.enableEffectInPipeline("ssao", ssao.SSAOCombineRenderEffect, camera);
+                    }
+                        // draw without SSAO when pressed "2"
+                    else if (evt.keyCode === 50) {
+                        scene.postProcessRenderPipelineManager.detachCamerasFromRenderPipeline("ssao", camera);
+                    }
+                        // draw only SSAO when pressed "2"
+                    else if (evt.keyCode === 51) {
+                        scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", camera);
+                        scene.postProcessRenderPipelineManager.disableEffectInPipeline("ssao", ssao.SSAOCombineRenderEffect, camera);
+                    }
+                });
+
+
+                var gui = new dat.GUI();
+                gui.add(ssao, "radius", 0.1, 15.0);
+                gui.add(ssao, "totalStrength", 0.1, 10);
+                gui.add(ssao, "base", 0.0, 1.0);
+                var samples = gui.add(ssao, "samples", 2, 32).step(1);
+                gui.add(ssao, "expensiveBlur");
+
+                ssao.ssaoRatio = 0.5;
+                ssao.blurRatio = 0.5;
+                var ssaoRatio = gui.add(ssao, "ssaoRatio", { Quarter: 0.25, Half: 0.5, Full: 1 });
+                var blurRatio = gui.add(ssao, "blurRatio", { Quarter: 0.25, Half: 0.5, Full: 1 });
+
+                ssaoRatio.onChange(function(value) {
+                    ssao._blurHPostProcess._options = value;
+                });
+
+                blurRatio.onChange(function(value) {
+                    ssao._blurVPostProcess._options = value;
+                    ssao._ssaoCombinePostProcess._options = value;
+                });
+
+                return scene;
+            }
+
+
+            // call the createScene function
+            var scene = createScene();
+
+            // run the render loop
+            engine.runRenderLoop(function(){
+                scene.render();
+            });
+
+            // the canvas/window resize event handler
+            window.addEventListener('resize', function(){
+                engine.resize();
+            });
+
+    });
+    </script>
+</body>
+</html>
